@@ -31,6 +31,8 @@ import androidx.lifecycle.ViewModelProviders;
 import com.lqr.emoji.EmotionLayout;
 import com.lqr.emoji.IEmotionExtClickListener;
 import com.lqr.emoji.IEmotionSelectedListener;
+import com.lqr.emoji.LQREmotionKit;
+import com.lqr.emoji.MoonUtils;
 
 import java.io.File;
 import java.util.ArrayList;
@@ -45,6 +47,7 @@ import cn.wildfire.chat.kit.conversation.ext.core.ConversationExtension;
 import cn.wildfire.chat.kit.conversation.mention.MentionGroupMemberActivity;
 import cn.wildfire.chat.kit.conversation.mention.MentionSpan;
 import cn.wildfire.chat.kit.group.GroupViewModel;
+import cn.wildfire.chat.kit.viewmodel.MessageViewModel;
 import cn.wildfire.chat.kit.widget.InputAwareLayout;
 import cn.wildfire.chat.kit.widget.KeyboardHeightFrameLayout;
 import cn.wildfire.chat.kit.widget.ViewPagerFixed;
@@ -89,6 +92,7 @@ public class ConversationInputPanel extends FrameLayout implements IEmotionSelec
 
     ConversationExtension extension;
     private Conversation conversation;
+    private MessageViewModel messageViewModel;
     private ConversationViewModel conversationViewModel;
     private InputAwareLayout rootLinearLayout;
     private FragmentActivity activity;
@@ -97,6 +101,8 @@ public class ConversationInputPanel extends FrameLayout implements IEmotionSelec
     private long lastTypingTime;
     private String draftString;
     private static final int TYPING_INTERVAL_IN_SECOND = 10;
+    private static final int MAX_EMOJI_PER_MESSAGE = 50;
+    private int messageEmojiCount = 0;
     private SharedPreferences sharedPreferences;
 
     private OnConversationInputPanelStateChangeListener onConversationInputPanelStateChangeListener;
@@ -129,10 +135,9 @@ public class ConversationInputPanel extends FrameLayout implements IEmotionSelec
 
     }
 
-    public void setupConversation(ConversationViewModel conversationViewModel, Conversation conversation) {
-        this.conversationViewModel = conversationViewModel;
+    public void setupConversation(Conversation conversation) {
         this.conversation = conversation;
-        this.extension.bind(conversationViewModel, conversation);
+        this.extension.bind(this.messageViewModel, conversation);
 
         setDraft();
     }
@@ -166,7 +171,6 @@ public class ConversationInputPanel extends FrameLayout implements IEmotionSelec
         sharedPreferences = getContext().getSharedPreferences("sticker", Context.MODE_PRIVATE);
 
         // emotion
-        emotionLayout.attachEditText(editText);
         emotionLayout.setEmotionAddVisiable(true);
         emotionLayout.setEmotionSettingVisiable(true);
 
@@ -201,7 +205,7 @@ public class ConversationInputPanel extends FrameLayout implements IEmotionSelec
                 //发送文件
                 File file = new File(audioFile);
                 if (file.exists()) {
-                    conversationViewModel.sendAudioFile(Uri.parse(audioFile), duration);
+                    messageViewModel.sendAudioFile(conversation, Uri.parse(audioFile), duration);
                 }
             }
 
@@ -214,7 +218,7 @@ public class ConversationInputPanel extends FrameLayout implements IEmotionSelec
             public void onRecordStateChanged(AudioRecorderPanel.RecordState state) {
                 if (state == AudioRecorderPanel.RecordState.START) {
                     TypingMessageContent content = new TypingMessageContent(TypingMessageContent.TYPING_VOICE);
-                    conversationViewModel.sendMessage(content);
+                    messageViewModel.sendMessage(conversation, content);
                 }
             }
         });
@@ -232,6 +236,9 @@ public class ConversationInputPanel extends FrameLayout implements IEmotionSelec
                 Toast.makeText(activity, "setting", Toast.LENGTH_SHORT).show();
             }
         });
+
+        messageViewModel = ViewModelProviders.of(activity).get(MessageViewModel.class);
+        conversationViewModel = ViewModelProviders.of(activity).get(ConversationViewModel.class);
 
     }
 
@@ -321,6 +328,7 @@ public class ConversationInputPanel extends FrameLayout implements IEmotionSelec
 
     @OnClick(R.id.sendButton)
     void sendMessage() {
+        messageEmojiCount = 0;
         Editable content = editText.getText();
         if (TextUtils.isEmpty(content)) {
             return;
@@ -347,7 +355,7 @@ public class ConversationInputPanel extends FrameLayout implements IEmotionSelec
                 }
             }
         }
-        conversationViewModel.sendTextMsg(txtContent);
+        messageViewModel.sendTextMsg(conversation, txtContent);
         editText.setText("");
     }
 
@@ -366,6 +374,7 @@ public class ConversationInputPanel extends FrameLayout implements IEmotionSelec
         }
         Draft draft = Draft.fromDraftJson(conversationInfo.draft);
         draftString = draft == null ? "" : draft.getContent();
+        messageEmojiCount = draft == null ? 0 : draft.getEmojiCount();
 
         editText.setText(draftString);
     }
@@ -374,15 +383,15 @@ public class ConversationInputPanel extends FrameLayout implements IEmotionSelec
         Editable editable = editText.getText();
         if (TextUtils.isEmpty(editable.toString().trim())) {
             if (!TextUtils.isEmpty(draftString)) {
-                conversationViewModel.saveDraft(conversation, null);
+                messageViewModel.saveDraft(conversation, null);
             }
             return;
         }
         if (TextUtils.equals(this.draftString, editable)) {
             return;
         }
-        String draft = Draft.toDraftJson(editable);
-        conversationViewModel.saveDraft(conversation, draft);
+        String draft = Draft.toDraftJson(editable, messageEmojiCount);
+        messageViewModel.saveDraft(conversation, draft);
     }
 
     private void showAudioButton() {
@@ -453,20 +462,47 @@ public class ConversationInputPanel extends FrameLayout implements IEmotionSelec
             if (now - lastTypingTime > TYPING_INTERVAL_IN_SECOND * 1000) {
                 lastTypingTime = now;
                 TypingMessageContent content = new TypingMessageContent(type);
-                conversationViewModel.sendMessage(content);
+                messageViewModel.sendMessage(conversation, content);
             }
         }
     }
 
     @Override
     public void onEmojiSelected(String key) {
-//        LogUtils.e("onEmojiSelected : " + key);
+        Editable editable = editText.getText();
+        if (key.equals("/DEL")) {
+            messageEmojiCount--;
+            messageEmojiCount = messageEmojiCount < 0 ? 0 : messageEmojiCount;
+            editText.dispatchKeyEvent(new KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_DEL));
+        } else {
+            if (messageEmojiCount >= MAX_EMOJI_PER_MESSAGE) {
+                Toast.makeText(activity, "最多允许输入" + MAX_EMOJI_PER_MESSAGE + "个表情符号", Toast.LENGTH_SHORT).show();
+                return;
+            }
+            messageEmojiCount++;
+            int code = Integer.decode(key);
+            char[] chars = Character.toChars(code);
+            String value = Character.toString(chars[0]);
+            for (int i = 1; i < chars.length; i++) {
+                value += Character.toString(chars[i]);
+            }
+
+            int start = editText.getSelectionStart();
+            int end = editText.getSelectionEnd();
+            start = (start < 0 ? 0 : start);
+            end = (start < 0 ? 0 : end);
+            editable.replace(start, end, value);
+
+            int editEnd = editText.getSelectionEnd();
+            MoonUtils.replaceEmoticons(LQREmotionKit.getContext(), editable, 0, editable.toString().length());
+            editText.setSelection(editEnd);
+        }
     }
 
     @Override
     public void onStickerSelected(String categoryName, String stickerName, String stickerBitmapPath) {
         String remoteUrl = sharedPreferences.getString(stickerBitmapPath, null);
-        conversationViewModel.sendStickerMsg(stickerBitmapPath, remoteUrl);
+        messageViewModel.sendStickerMsg(conversation, stickerBitmapPath, remoteUrl);
     }
 
 

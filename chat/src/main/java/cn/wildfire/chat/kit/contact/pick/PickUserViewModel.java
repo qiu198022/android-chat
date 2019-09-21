@@ -1,5 +1,6 @@
 package cn.wildfire.chat.kit.contact.pick;
 
+import androidx.annotation.NonNull;
 import androidx.lifecycle.MutableLiveData;
 import androidx.lifecycle.ViewModel;
 
@@ -7,8 +8,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 import cn.wildfire.chat.kit.contact.model.UIUserInfo;
+import cn.wildfire.chat.kit.utils.PinyinUtils;
 import cn.wildfirechat.model.UserInfo;
-import cn.wildfirechat.remote.ChatManager;
 
 public class PickUserViewModel extends ViewModel {
     private List<UIUserInfo> users;
@@ -79,29 +80,22 @@ public class PickUserViewModel extends ViewModel {
         }
     }
 
-    public List<UIUserInfo> searchContact(String keyword) {
+    public List<UIUserInfo> searchUser(String keyword) {
         if (users == null || users.isEmpty()) {
             return null;
         }
 
-        // FIXME: 2019-07-17 需要个搜索人的接口，从本地user表搜索，friend是联表了，需要是好友才能被搜索到
-        List<UserInfo> tmpList = ChatManager.Instance().searchFriends(keyword);
-        if (tmpList == null || tmpList.isEmpty()) {
-            return null;
-        }
-
         List<UIUserInfo> resultList = new ArrayList<>();
-        for (UserInfo userInfo : tmpList) {
-            for (UIUserInfo info : users) {
-                if (info.getUserInfo().uid.equals(userInfo.uid)) {
-                    resultList.add(info);
-                    if (uncheckableIds != null && uncheckableIds.contains(userInfo.uid)) {
-                        info.setCheckable(false);
-                    }
-                    if (initialCheckedIds != null && initialCheckedIds.contains(userInfo.uid)) {
-                        info.setChecked(true);
-                    }
-                    break;
+        for (UIUserInfo info : users) {
+            UserInfo userInfo = info.getUserInfo();
+            String pinyin = PinyinUtils.getPinyin(userInfo.displayName);
+            if (userInfo.displayName.contains(keyword) || pinyin.contains(keyword.toUpperCase())) {
+                resultList.add(info);
+                if (uncheckableIds != null && uncheckableIds.contains(userInfo.uid)) {
+                    info.setCheckable(false);
+                }
+                if (initialCheckedIds != null && initialCheckedIds.contains(userInfo.uid)) {
+                    info.setChecked(true);
                 }
             }
         }
@@ -114,30 +108,18 @@ public class PickUserViewModel extends ViewModel {
     }
 
     /**
-     * not include initial checked users
+     * include initial checked users
      *
      * @return
      */
-    public List<UIUserInfo> getCheckedUsers() {
+    public @NonNull
+    List<UIUserInfo> getCheckedUsers() {
         List<UIUserInfo> checkedUsers = new ArrayList<>();
         if (users == null) {
             return checkedUsers;
         }
         for (UIUserInfo info : users) {
             if (info.isCheckable() && info.isChecked()) {
-                checkedUsers.add(info);
-            }
-        }
-        return checkedUsers;
-    }
-
-    public List<UIUserInfo> getInitialCheckedUsers() {
-        List<UIUserInfo> checkedUsers = new ArrayList<>();
-        if (users == null || initialCheckedIds == null) {
-            return checkedUsers;
-        }
-        for (UIUserInfo info : users) {
-            if (initialCheckedIds.contains(info.getUserInfo().uid)) {
                 checkedUsers.add(info);
             }
         }

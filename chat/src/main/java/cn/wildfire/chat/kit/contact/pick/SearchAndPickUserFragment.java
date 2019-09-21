@@ -23,7 +23,7 @@ import cn.wildfire.chat.kit.contact.UserListAdapter;
 import cn.wildfire.chat.kit.contact.model.UIUserInfo;
 import cn.wildfirechat.chat.R;
 
-public class SearchAndPickContactFragment extends Fragment implements UserListAdapter.OnUserClickListener {
+public class SearchAndPickUserFragment extends Fragment implements UserListAdapter.OnUserClickListener {
     private CheckableUserListAdapter contactAdapter;
     private PickUserViewModel pickUserViewModel;
     private PickUserFragment pickUserFragment;
@@ -64,7 +64,7 @@ public class SearchAndPickContactFragment extends Fragment implements UserListAd
         if (TextUtils.isEmpty(keyword)) {
             return;
         }
-        List<UIUserInfo> result = pickUserViewModel.searchContact(keyword);
+        List<UIUserInfo> result = pickUserViewModel.searchUser(keyword);
         if (result == null || result.isEmpty()) {
             contactRecyclerView.setVisibility(View.GONE);
             tipTextView.setVisibility(View.VISIBLE);

@@ -33,7 +33,6 @@ import cn.wildfirechat.chat.R;
 import cn.wildfirechat.message.Message;
 import cn.wildfirechat.message.core.MessageDirection;
 import cn.wildfirechat.message.core.MessageStatus;
-import cn.wildfirechat.message.notification.NotificationMessageContent;
 import cn.wildfirechat.model.Conversation;
 import cn.wildfirechat.model.GroupInfo;
 import cn.wildfirechat.model.GroupMember;
@@ -123,7 +122,7 @@ public abstract class NormalMessageContentViewHolder extends MessageContentViewH
                 .content("重新发送?")
                 .negativeText("取消")
                 .positiveText("重发")
-                .onPositive((dialog, which) -> conversationViewModel.resendMessage(message.message))
+                .onPositive((dialog, which) -> messageViewModel.resendMessage(message.message))
                 .build()
                 .show();
     }
@@ -131,12 +130,12 @@ public abstract class NormalMessageContentViewHolder extends MessageContentViewH
 
     @MessageContextMenuItem(tag = MessageContextMenuItemTags.TAG_RECALL, title = "撤回", priority = 10)
     public void recall(View itemView, UiMessage message) {
-        conversationViewModel.recallMessage(message.message);
+        messageViewModel.recallMessage(message.message);
     }
 
     @MessageContextMenuItem(tag = MessageContextMenuItemTags.TAG_DELETE, title = "删除", confirm = true, confirmPrompt = "确认删除此消息", priority = 11)
     public void removeMessage(View itemView, UiMessage message) {
-        conversationViewModel.deleteMessage(message.message);
+        messageViewModel.deleteMessage(message.message);
     }
 
     @MessageContextMenuItem(tag = MessageContextMenuItemTags.TAG_FORWARD, title = "转发", priority = 11)
@@ -156,7 +155,6 @@ public abstract class NormalMessageContentViewHolder extends MessageContentViewH
     public boolean contextMenuItemFilter(UiMessage uiMessage, String tag) {
         Message message = uiMessage.message;
         if (MessageContextMenuItemTags.TAG_RECALL.equals(tag)) {
-
             String userId = ChatManager.Instance().getUserId();
             if (message.conversation.type == Conversation.ConversationType.Group) {
                 GroupViewModel groupViewModel = ViewModelProviders.of(context).get(GroupViewModel.class);
@@ -168,31 +166,24 @@ public abstract class NormalMessageContentViewHolder extends MessageContentViewH
                 if (groupMember != null && (groupMember.type == GroupMember.GroupMemberType.Manager
                         || groupMember.type == GroupMember.GroupMemberType.Owner)) {
                     return false;
-                } else {
-                    return true;
-                }
-            } else {
-                long delta = ChatManager.Instance().getServerDeltaTime();
-                long now = System.currentTimeMillis();
-                if (message.direction == MessageDirection.Send
-                        && TextUtils.equals(message.sender, ChatManager.Instance().getUserId())
-                        && now - (message.serverTime - delta) < 60 * 1000) {
-                    return false;
-                } else {
-                    return true;
                 }
             }
-        }
 
-        if (uiMessage.message.content instanceof NotificationMessageContent && MessageContextMenuItemTags.TAG_FORWARD.equals(tag)) {
-            return true;
+            long delta = ChatManager.Instance().getServerDeltaTime();
+            long now = System.currentTimeMillis();
+            if (message.direction == MessageDirection.Send
+                    && TextUtils.equals(message.sender, ChatManager.Instance().getUserId())
+                    && now - (message.serverTime - delta) < 60 * 1000) {
+                return false;
+            } else {
+                return true;
+            }
         }
 
         // 只有channel 主可以发起
         if (MessageContextMenuItemTags.TAG_CHANEL_PRIVATE_CHAT.equals(tag)) {
             if (uiMessage.message.conversation.type == Conversation.ConversationType.Channel
-                    && uiMessage.message.direction == MessageDirection.Receive
-                    && conversationViewModel.getChannelPrivateChatUser() == null) {
+                    && uiMessage.message.direction == MessageDirection.Receive) {
                 return false;
             }
             return true;

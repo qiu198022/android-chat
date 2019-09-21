@@ -3,12 +3,14 @@ package cn.wildfire.chat.kit.conversationlist;
 import androidx.lifecycle.MutableLiveData;
 import androidx.lifecycle.ViewModel;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import cn.wildfirechat.message.Message;
 import cn.wildfirechat.model.Conversation;
 import cn.wildfirechat.model.ConversationInfo;
+import cn.wildfirechat.model.GroupMember;
 import cn.wildfirechat.model.UnreadCount;
 import cn.wildfirechat.remote.ChatManager;
 import cn.wildfirechat.remote.GeneralCallback;
@@ -94,9 +96,18 @@ public class ConversationListViewModel extends ViewModel implements OnReceiveMes
         ChatManager.Instance().getWorkHandler().post(() -> {
             loadingCount.decrementAndGet();
             List<ConversationInfo> conversationInfos = ChatManager.Instance().getConversationList(types, lines);
-            if (!conversationInfos.isEmpty()) {
-                conversationListLiveData.postValue(conversationInfos);
+            List<ConversationInfo> out = new ArrayList<>();
+            for (ConversationInfo info : conversationInfos) {
+                if (info.conversation.type == Conversation.ConversationType.Group) {
+                    GroupMember member = ChatManager.Instance().getGroupMember(info.conversation.target, ChatManager.Instance().getUserId());
+                    if (member != null && member.type != GroupMember.GroupMemberType.Removed) {
+                        out.add(info);
+                    }
+                } else {
+                    out.add(info);
+                }
             }
+            conversationListLiveData.postValue(out);
         });
     }
 
@@ -154,11 +165,13 @@ public class ConversationListViewModel extends ViewModel implements OnReceiveMes
     @Override
     public void onReceiveMessage(List<Message> messages, boolean hasMore) {
         reloadConversationList(true);
+        reloadConversationUnreadStatus();
     }
 
     @Override
     public void onRecallMessage(Message message) {
         reloadConversationList();
+        reloadConversationUnreadStatus();
     }
 
 
@@ -191,6 +204,7 @@ public class ConversationListViewModel extends ViewModel implements OnReceiveMes
         ChatManager.Instance().clearMessages(conversation);
     }
 
+    // TODO move the following to another class
     public void unSubscribeChannel(ConversationInfo conversationInfo) {
         ChatManager.Instance().listenChannel(conversationInfo.conversation.target, false, new GeneralCallback() {
             @Override
@@ -219,6 +233,7 @@ public class ConversationListViewModel extends ViewModel implements OnReceiveMes
     @Override
     public void onMessagedRemove(Message message) {
         reloadConversationList();
+        reloadConversationUnreadStatus();
     }
 
     @Override
@@ -239,6 +254,7 @@ public class ConversationListViewModel extends ViewModel implements OnReceiveMes
     @Override
     public void onConversationUnreadStatusClear(ConversationInfo conversationInfo, UnreadCount unreadCount) {
         reloadConversationList();
+        reloadConversationUnreadStatus();
     }
 
     @Override
@@ -256,10 +272,12 @@ public class ConversationListViewModel extends ViewModel implements OnReceiveMes
     @Override
     public void onClearMessage(Conversation conversation) {
         reloadConversationList();
+        reloadConversationUnreadStatus();
     }
 
     @Override
     public void onConversationRemove(Conversation conversation) {
         reloadConversationList();
+        reloadConversationUnreadStatus();
     }
 }

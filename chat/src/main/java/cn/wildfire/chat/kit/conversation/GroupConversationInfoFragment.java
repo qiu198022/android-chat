@@ -22,7 +22,6 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import com.afollestad.materialdialogs.MaterialDialog;
 import com.kyleduo.switchbutton.SwitchButton;
-import com.lqr.optionitemview.OptionItemView;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -35,6 +34,7 @@ import butterknife.OnClick;
 import cn.wildfire.chat.app.main.MainActivity;
 import cn.wildfire.chat.kit.ChatManagerHolder;
 import cn.wildfire.chat.kit.WfcScheme;
+import cn.wildfire.chat.kit.WfcUIKit;
 import cn.wildfire.chat.kit.conversationlist.ConversationListViewModel;
 import cn.wildfire.chat.kit.conversationlist.ConversationListViewModelFactory;
 import cn.wildfire.chat.kit.group.AddGroupMemberActivity;
@@ -47,6 +47,7 @@ import cn.wildfire.chat.kit.qrcode.QRCodeActivity;
 import cn.wildfire.chat.kit.search.SearchMessageActivity;
 import cn.wildfire.chat.kit.user.UserInfoActivity;
 import cn.wildfire.chat.kit.user.UserViewModel;
+import cn.wildfire.chat.kit.widget.OptionItemView;
 import cn.wildfirechat.chat.R;
 import cn.wildfirechat.model.Conversation;
 import cn.wildfirechat.model.ConversationInfo;
@@ -143,7 +144,7 @@ public class GroupConversationInfoFragment extends Fragment implements Conversat
     }
 
     private void init() {
-        conversationViewModel = ViewModelProviders.of(this, new ConversationViewModelFactory(conversationInfo.conversation)).get(ConversationViewModel.class);
+        conversationViewModel = WfcUIKit.getAppScopeViewModel(ConversationViewModel.class);
         userViewModel = ViewModelProviders.of(this).get(UserViewModel.class);
         groupLinearLayout_0.setVisibility(View.VISIBLE);
         groupLinearLayout_1.setVisibility(View.VISIBLE);
@@ -194,7 +195,7 @@ public class GroupConversationInfoFragment extends Fragment implements Conversat
         groupViewModel.groupInfoUpdateLiveData().observe(this, groupInfos -> {
             for (GroupInfo groupInfo : groupInfos) {
                 if (groupInfo.target.equals(this.groupInfo.target)) {
-                    groupNameOptionItemView.setRightText(groupInfo.name);
+                    groupNameOptionItemView.setDesc(groupInfo.name);
                     loadAndShowGroupMembers(false);
                     break;
                 }
@@ -224,8 +225,8 @@ public class GroupConversationInfoFragment extends Fragment implements Conversat
             userViewModel.setUserSetting(UserSettingScope.GroupHideNickname, groupInfo.target, isChecked ? "1" : "0");
         });
 
-        myGroupNickNameOptionItemView.setRightText(groupMember.alias);
-        groupNameOptionItemView.setRightText(groupInfo.name);
+        myGroupNickNameOptionItemView.setDesc(groupMember.alias);
+        groupNameOptionItemView.setDesc(groupInfo.name);
 
         stickTopSwitchButton.setChecked(conversationInfo.isTop);
         silentSwitchButton.setChecked(conversationInfo.isSilent);
@@ -323,7 +324,7 @@ public class GroupConversationInfoFragment extends Fragment implements Conversat
                     groupViewModel.modifyMyGroupAlias(groupInfo.target, input.toString().trim())
                             .observe(GroupConversationInfoFragment.this, operateResult -> {
                                 if (operateResult.isSuccess()) {
-                                    myGroupNickNameOptionItemView.setRightText(input.toString().trim());
+                                    myGroupNickNameOptionItemView.setDesc(input.toString().trim());
                                 } else {
                                     Toast.makeText(getActivity(), "修改群昵称失败:" + operateResult.getErrorCode(), Toast.LENGTH_SHORT).show();
                                 }
