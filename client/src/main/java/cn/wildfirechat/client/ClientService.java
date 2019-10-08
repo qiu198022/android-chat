@@ -1019,8 +1019,8 @@ public class ClientService extends Service implements SdtLogic.ICallBack,
         }
 
         @Override
-        public void uploadMedia(byte[] data, int mediaType, final IUploadMediaCallback callback) throws RemoteException {
-            ProtoLogic.uploadMedia(data, mediaType, new ProtoLogic.IUploadMediaCallback() {
+        public void uploadMedia(String fileName, byte[] data, int mediaType, final IUploadMediaCallback callback) throws RemoteException {
+            ProtoLogic.uploadMedia(fileName, data, mediaType, new ProtoLogic.IUploadMediaCallback() {
                 @Override
                 public void onSuccess(String s) {
                     try {
@@ -1054,7 +1054,11 @@ public class ClientService extends Service implements SdtLogic.ICallBack,
                 byte[] data = new byte[length];
                 bufferedInputStream.read(data);
 
-                uploadMedia(data, mediaType, callback);
+                String fileName = "";
+                if (mediaPath.contains("/")) {
+                    fileName = mediaPath.substring(mediaPath.lastIndexOf("/") + 1, mediaPath.length());
+                }
+                uploadMedia(fileName, data, mediaType, callback);
             } catch (Exception e) {
                 e.printStackTrace();
                 e.printStackTrace();
@@ -1780,6 +1784,8 @@ public class ClientService extends Service implements SdtLogic.ICallBack,
     public void onCreate() {
         super.onCreate();
 
+        AppLogic.setCallBack(this);
+        SdtLogic.setCallBack(this);
         // Initialize the Mars PlatformComm
         handler = new Handler(Looper.getMainLooper());
         Mars.init(getApplicationContext(), handler);
@@ -1951,7 +1957,7 @@ public class ClientService extends Service implements SdtLogic.ICallBack,
 
     @Override
     public AppLogic.DeviceInfo getDeviceType() {
-        if (info == null) {
+        if (info == null || TextUtils.isEmpty(info.clientid)) {
             String imei = PreferenceManager.getDefaultSharedPreferences(context).getString("mars_core_uid", "");
             if (TextUtils.isEmpty(imei)) {
                 imei = Settings.Secure.getString(context.getContentResolver(), Settings.Secure.ANDROID_ID);
@@ -1982,6 +1988,9 @@ public class ClientService extends Service implements SdtLogic.ICallBack,
     @Override
     public void onConnectionStatusChanged(int status) {
         android.util.Log.d("", "status changed :" + status);
+        if (mConnectionStatus == status) {
+            return;
+        }
         mConnectionStatus = status;
         if (status == -4) {
             status = -1;

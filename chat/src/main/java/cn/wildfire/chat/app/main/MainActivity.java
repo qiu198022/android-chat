@@ -33,7 +33,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
-import butterknife.Bind;
+import butterknife.BindView;
 import cn.wildfire.chat.kit.IMConnectionStatusViewModel;
 import cn.wildfire.chat.kit.IMServiceStatusViewModel;
 import cn.wildfire.chat.kit.WfcBaseActivity;
@@ -65,13 +65,13 @@ public class MainActivity extends WfcBaseActivity implements ViewPager.OnPageCha
 
     private List<Fragment> mFragmentList = new ArrayList<>(4);
 
-    @Bind(R.id.bottomNavigationView)
+    @BindView(R.id.bottomNavigationView)
     BottomNavigationView bottomNavigationView;
-    @Bind(R.id.contentViewPager)
+    @BindView(R.id.contentViewPager)
     ViewPagerFixed contentViewPager;
-    @Bind(R.id.startingTextView)
+    @BindView(R.id.startingTextView)
     TextView startingTextView;
-    @Bind(R.id.contentLinearLayout)
+    @BindView(R.id.contentLinearLayout)
     LinearLayout contentLinearLayout;
 
     private QBadgeView unreadMessageUnreadBadgeView;
@@ -114,7 +114,7 @@ public class MainActivity extends WfcBaseActivity implements ViewPager.OnPageCha
         imServiceStatusViewModel.imServiceStatusLiveData().observe(this, imStatusLiveDataObserver);
         IMConnectionStatusViewModel connectionStatusViewModel = ViewModelProviders.of(this).get(IMConnectionStatusViewModel.class);
         connectionStatusViewModel.connectionStatusLiveData().observe(this, status -> {
-            if (status == ConnectionStatus.ConnectionStatusTokenIncorrect || status == ConnectionStatus.ConnectionStatusSecretKeyMismatch) {
+            if (status == ConnectionStatus.ConnectionStatusTokenIncorrect || status == ConnectionStatus.ConnectionStatusSecretKeyMismatch || status == ConnectionStatus.ConnectionStatusRejected || status == ConnectionStatus.ConnectionStatusLogout) {
                 ChatManager.Instance().disconnect(true);
                 reLogin();
             }
@@ -122,7 +122,6 @@ public class MainActivity extends WfcBaseActivity implements ViewPager.OnPageCha
     }
 
     private void reLogin() {
-        ChatManager.Instance().disconnect(true);
         SharedPreferences sp = getSharedPreferences("config", Context.MODE_PRIVATE);
         sp.edit().clear().apply();
 
