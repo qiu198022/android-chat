@@ -300,23 +300,22 @@ public class ConversationFragment extends Fragment implements
 
         inputPanel.init(this, rootLinearLayout);
         inputPanel.setOnConversationInputPanelStateChangeListener(this);
+
+        settingViewModel = ViewModelProviders.of(this).get(SettingViewModel.class);
+        conversationViewModel = WfcUIKit.getAppScopeViewModel(ConversationViewModel.class);
+        conversationViewModel.clearConversationMessageLiveData().observeForever(clearConversationMessageObserver);
+        messageViewModel = ViewModelProviders.of(this).get(MessageViewModel.class);
+
+        messageViewModel.messageLiveData().observeForever(messageLiveDataObserver);
+        messageViewModel.messageUpdateLiveData().observeForever(messageUpdateLiveDatObserver);
+        messageViewModel.messageRemovedLiveData().observeForever(messageRemovedLiveDataObserver);
+        messageViewModel.mediaUpdateLiveData().observeForever(mediaUploadedLiveDataObserver);
+
+        userViewModel = ViewModelProviders.of(this).get(UserViewModel.class);
+        userViewModel.userInfoLiveData().observeForever(userInfoUpdateLiveDataObserver);
     }
 
     private void setupConversation(Conversation conversation) {
-        if (conversationViewModel == null) {
-            settingViewModel = ViewModelProviders.of(this).get(SettingViewModel.class);
-            conversationViewModel = WfcUIKit.getAppScopeViewModel(ConversationViewModel.class);
-            conversationViewModel.clearConversationMessageLiveData().observeForever(clearConversationMessageObserver);
-            messageViewModel = ViewModelProviders.of(this).get(MessageViewModel.class);
-
-            messageViewModel.messageLiveData().observeForever(messageLiveDataObserver);
-            messageViewModel.messageUpdateLiveData().observeForever(messageUpdateLiveDatObserver);
-            messageViewModel.messageRemovedLiveData().observeForever(messageRemovedLiveDataObserver);
-            messageViewModel.mediaUpdateLiveData().observeForever(mediaUploadedLiveDataObserver);
-
-            userViewModel = ViewModelProviders.of(this).get(UserViewModel.class);
-            userViewModel.userInfoLiveData().observeForever(userInfoUpdateLiveDataObserver);
-        }
 
         if (conversation.type == Conversation.ConversationType.Group) {
             GroupViewModel groupViewModel = ViewModelProviders.of(this).get(GroupViewModel.class);
@@ -517,14 +516,13 @@ public class ConversationFragment extends Fragment implements
 
     @Override
     public void onPortraitLongClick(UserInfo userInfo) {
-        // TODO panel insert
-        int position = inputPanel.editText.getSelectionEnd();
-        position = position >= 0 ? position : 0;
         if (conversation.type == Conversation.ConversationType.Group) {
             SpannableString spannableString = mentionSpannable(userInfo);
-            inputPanel.editText.getEditableText().insert(position, spannableString);
+            int position = inputPanel.editText.getSelectionEnd();
+            inputPanel.editText.getEditableText().append(" ");
+            inputPanel.editText.getEditableText().replace(position, position + 1, spannableString);
         } else {
-            inputPanel.editText.getEditableText().insert(position, userViewModel.getUserDisplayName(userInfo));
+            inputPanel.editText.getEditableText().append(userViewModel.getUserDisplayName(userInfo));
         }
     }
 
@@ -654,7 +652,7 @@ public class ConversationFragment extends Fragment implements
 
     private void updateTypingStatusTitle(TypingMessageContent typingMessageContent) {
         String typingDesc = "";
-        switch (typingMessageContent.getType()) {
+        switch (typingMessageContent.getTypingType()) {
             case TypingMessageContent.TYPING_TEXT:
                 typingDesc = "对方正在输入";
                 break;
@@ -681,6 +679,9 @@ public class ConversationFragment extends Fragment implements
     private Runnable resetConversationTitleRunnable = this::resetConversationTitle;
 
     private void resetConversationTitle() {
+        if (getActivity() == null || getActivity().isFinishing()) {
+            return;
+        }
         if (!TextUtils.equals(conversationTitle, getActivity().getTitle())) {
             setActivityTitle(conversationTitle);
             handler.removeCallbacks(resetConversationTitleRunnable);
@@ -719,7 +720,7 @@ public class ConversationFragment extends Fragment implements
         List<MultiMessageAction> actions = MultiMessageActionManager.getInstance().getConversationActions(conversation);
         for (MultiMessageAction action : actions) {
 
-            action.onBind(getActivity(), conversation);
+            action.onBind(this, conversation);
             TextView textView = new TextView(getActivity());
             textView.setCompoundDrawablePadding(10);
             textView.setCompoundDrawablesWithIntrinsicBounds(action.iconResId(), 0, 0, 0);
