@@ -10,8 +10,9 @@ import android.util.Log;
 
 public interface Config {
 
-    // 仅仅是host，没有http开头
-    // 不可配置为127.0.0.1 或者 192.168.0.1
+    // 仅仅是host，没有http开头，不可配置为127.0.0.1 或者 192.168.0.1
+    // host可以是IP，可以是域名，如果是域名的话只支持主域名或www域名，二级域名不支持！
+    // 例如：example.com或www.example.com是支持的；xx.example.com或xx.yy.example.com是不支持的。
     String IM_SERVER_HOST = "wildfirechat.cn";
     int IM_SERVER_PORT = 80;
 
@@ -33,10 +34,8 @@ public interface Config {
         if (TextUtils.isEmpty(IM_SERVER_HOST)
                 || IM_SERVER_HOST.startsWith("http")
                 || TextUtils.isEmpty(APP_SERVER_ADDRESS)
-                || !APP_SERVER_ADDRESS.startsWith("http")
-                || IM_SERVER_HOST.equals("192.168.0.1")
+                || (!APP_SERVER_ADDRESS.startsWith("http") && !APP_SERVER_ADDRESS.startsWith("https"))
                 || IM_SERVER_HOST.equals("127.0.0.1")
-                || APP_SERVER_ADDRESS.contains("192.168.0.1")
                 || APP_SERVER_ADDRESS.contains("127.0.0.1")
         ) {
             throw new IllegalStateException("im server host config error");
